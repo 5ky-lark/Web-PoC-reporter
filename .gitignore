@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+
+# SQLite runtime
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/cybersyc.db
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
