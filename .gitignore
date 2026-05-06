@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *.pyd
 *.pyo
+.venv/
+venv/
+backend/.venv/
 
 # SQLite runtime
 backend/*.db
