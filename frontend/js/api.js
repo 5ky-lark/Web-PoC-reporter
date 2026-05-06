@@ -3,16 +3,32 @@
  */
 
 const IS_LOCAL = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-// Vercel service routePrefix="/api" + backend endpoints under "/api/*" => "/api/api/*" in prod.
-const BASE = IS_LOCAL ? '' : '/api';
+const BASE_CANDIDATES = IS_LOCAL ? [''] : ['/api', '/_/backend', ''];
+let resolvedBase = null;
+
+async function fetchWithBase(path, opts = {}) {
+  const method = opts.method || 'GET';
+  const bases = resolvedBase ? [resolvedBase] : BASE_CANDIDATES;
+  let lastResp = null;
+  for (const base of bases) {
+    const resp = await fetch(base + path, {
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    });
+    if (resp.status !== 404) {
+      resolvedBase = base;
+      console.info('[api] base selected', { base, method, path, status: resp.status });
+      return resp;
+    }
+    lastResp = resp;
+  }
+  return lastResp;
+}
 
 async function req(path, opts = {}) {
   const method = opts.method || 'GET';
   console.info('[api] request', { method, path });
-  const resp = await fetch(BASE + path, {
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-  });
+  const resp = await fetchWithBase(path, opts);
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
     throw new Error(err.detail || `HTTP ${resp.status}`);
@@ -57,7 +73,7 @@ export const addNote      = (id, body, author = null) =>
 
 /* ---------- exports ---------- */
 export async function exportScan(scanId, format) {
-  const resp = await fetch(`${BASE}/api/scan/${scanId}/export/${format}`);
+  const resp = await fetchWithBase(`/api/scan/${scanId}/export/${format}`);
   if (!resp.ok) {
     let detail = `HTTP ${resp.status}`;
     try {
@@ -100,7 +116,8 @@ export async function exportScan(scanId, format) {
 /* ---------- websocket ---------- */
 export function connectWebSocket(scanId, onMessage, onClose) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${proto}//${window.location.host}/ws/scan/${scanId}`;
+  const base = resolvedBase || BASE_CANDIDATES[0] || '';
+  const url = `${proto}//${window.location.host}${base}/ws/scan/${scanId}`;
   const ws = new WebSocket(url);
   ws.onmessage = (ev) => {
     try { onMessage(JSON.parse(ev.data)); }
