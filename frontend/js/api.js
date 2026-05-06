@@ -2,7 +2,9 @@
  * API client — REST + WebSocket. Talks to FastAPI via Vite's /api proxy.
  */
 
-const BASE = '';
+const IS_LOCAL = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+// Vercel service routePrefix="/api" + backend endpoints under "/api/*" => "/api/api/*" in prod.
+const BASE = IS_LOCAL ? '' : '/api';
 
 async function req(path, opts = {}) {
   const method = opts.method || 'GET';
