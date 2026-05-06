@@ -1,6 +1,6 @@
 # Web-PoC-reporter
 
-Operator-grade web vulnerability scanner and PoC reporter with reproducible evidence.
+Web vulnerability scanner and PoC reporter with reproducible evidence.
 
 This project combines:
 - A **FastAPI backend** for scanning orchestration, persistence, exports, and report generation
