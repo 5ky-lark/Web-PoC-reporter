@@ -1,8 +1,4 @@
-/**
- * Run view — pick profile/modules, start scan, stream progress, kill switch.
- */
-
-import * as api from './api.js';
+﻿import * as api from './api.js';
 import {
   el, escapeHtml, toast, MODULE_NAMES, SEVERITY_GLYPH, hostOf,
 } from './utils.js';
@@ -16,11 +12,11 @@ let activeScanId = null;
 let runFindings = [];
 let runSummary = {};
 let onScanComplete = null;
+const DRAFT_KEY = 'cybersyc.runDraft.v1';
 
 export function setOnScanComplete(fn) { onScanComplete = fn; }
 
-export async function init(engagementsCacheGetter) {
-  // Load profiles + module list
+export async function init() {
   try {
     const data = await api.getProfiles();
     profiles = data.profiles;
@@ -39,57 +35,17 @@ export async function init(engagementsCacheGetter) {
 
   renderProfiles();
   renderModuleList();
+  restoreDraft();
 
   document.getElementById('btn-start-scan').addEventListener('click', startScan);
   document.getElementById('btn-kill').addEventListener('click', killScan);
   document.getElementById('run-target').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') startScan();
   });
-
-  // Engagement selector
-  await refreshEngagementOptions(engagementsCacheGetter);
-  document.getElementById('run-engagement').addEventListener('change', updateScopeHint);
-}
-
-export async function refreshEngagementOptions(getter) {
-  const select = document.getElementById('run-engagement');
-  if (!select) return;
-  let list = getter ? getter() : [];
-  if (!list.length) {
-    try { list = await api.listEngagements(); } catch { list = []; }
-  }
-  // Preserve user choice
-  const current = select.value;
-  select.innerHTML = '<option value="">— scan without engagement (warning) —</option>';
-  for (const e of list) {
-    if (e.status === 'closed') continue;
-    const opt = document.createElement('option');
-    opt.value = e.id;
-    opt.textContent = `${e.client_name} · ${e.tester_name} · ${e.in_scope_targets.length} target(s)`;
-    select.appendChild(opt);
-  }
-  if (current) select.value = current;
-  updateScopeHint();
-}
-
-function updateScopeHint() {
-  const select = document.getElementById('run-engagement');
-  const hint = document.getElementById('engagement-scope-hint');
-  if (!select.value) {
-    hint.textContent = 'no engagement attached';
-    hint.style.color = 'var(--text-faint)';
-    return;
-  }
-  const opt = select.options[select.selectedIndex];
-  hint.textContent = opt.textContent.split('·')[0].trim() + ' attached';
-  hint.style.color = 'var(--accent)';
-}
-
-export function preselectEngagement(eid) {
-  const select = document.getElementById('run-engagement');
-  if (!select) return;
-  select.value = eid;
-  updateScopeHint();
+  document.getElementById('run-target').addEventListener('input', persistDraft);
+  document.getElementById('auth-confirm').addEventListener('change', persistDraft);
+  document.getElementById('module-grid').addEventListener('change', persistDraft);
+  console.info('[run] initialized scanner view');
 }
 
 function renderProfiles() {
@@ -111,8 +67,7 @@ function renderProfiles() {
     );
     card.appendChild(head);
     card.appendChild(el('div', { className: 'desc' }, p.description));
-    card.appendChild(el('div', { className: 'count' },
-      `${p.modules.length} modules`));
+    card.appendChild(el('div', { className: 'count' }, `${p.modules.length} modules`));
     row.appendChild(card);
   }
 }
@@ -122,11 +77,12 @@ function selectProfile(name) {
   document.querySelectorAll('.profile-card').forEach(c => {
     c.classList.toggle('selected', c.dataset.profile === name);
   });
-  // Sync module checkboxes to profile
   const set = modulesByProfile[name] || new Set();
   document.querySelectorAll('.module-row input[type=checkbox]').forEach(cb => {
     cb.checked = set.has(cb.dataset.module);
   });
+  persistDraft();
+  console.info('[run] profile selected', { profile: name, modules: set.size });
 }
 
 function renderModuleList() {
@@ -136,10 +92,7 @@ function renderModuleList() {
   const set = modulesByProfile[selectedProfile] || new Set(allModules);
   for (const m of allModules) {
     const row = el('label', { className: 'module-row' });
-    const cb = el('input', {
-      type: 'checkbox',
-      'data-module': m,
-    });
+    const cb = el('input', { type: 'checkbox', 'data-module': m });
     if (set.has(m)) cb.checked = true;
     row.appendChild(cb);
     row.appendChild(el('div', {}, MODULE_NAMES[m] || m));
@@ -167,7 +120,6 @@ async function startScan() {
   clearError();
   const url = document.getElementById('run-target').value.trim();
   const auth = document.getElementById('auth-confirm').checked;
-  const engagementId = document.getElementById('run-engagement').value || null;
   const modules = getSelectedModules();
 
   if (!url) return showError('Target URL is required.');
@@ -179,17 +131,14 @@ async function startScan() {
   btn.innerHTML = '<span>Starting…</span>';
 
   try {
-    const r = await api.startScan({
-      targetUrl: url,
-      modules,
-      profile: selectedProfile,
-      engagementId,
-    });
+    console.info('[scan] start requested', { url, profile: selectedProfile, modulesCount: modules.length });
+    const r = await api.startScan({ targetUrl: url, modules, profile: selectedProfile });
     activeScanId = r.scan_id;
     runFindings = [];
     runSummary = {};
     showProgress(r.target_url, modules);
     activeWS = api.connectWebSocket(activeScanId, onWsMessage, onWsClose);
+    persistDraft();
   } catch (e) {
     btn.disabled = false;
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg> Start scan';
@@ -221,15 +170,14 @@ function showProgress(targetUrl, modules) {
 }
 
 function onWsMessage(data) {
+  console.info('[ws] message', data);
   if (data.type === 'scan_complete' || data.type === 'scan_cancelled') {
     runSummary = data.summary || {};
     document.getElementById('progress-percent').textContent = '100%';
     document.getElementById('progress-bar-fill').style.width = '100%';
     document.getElementById('progress-title').textContent =
       data.type === 'scan_cancelled' ? 'Scan cancelled' : 'Scan complete';
-    setTimeout(() => {
-      if (onScanComplete) onScanComplete(activeScanId);
-    }, 700);
+    setTimeout(() => { if (onScanComplete) onScanComplete(activeScanId); }, 700);
     return;
   }
   if (data.type === 'error') {
@@ -237,8 +185,7 @@ function onWsMessage(data) {
     return;
   }
 
-  // Module progress
-  const { module, status, progress, message, findings } = data;
+  const { module, status, progress, findings } = data;
   document.getElementById('progress-percent').textContent = `${Math.round(progress)}%`;
   document.getElementById('progress-bar-fill').style.width = `${progress}%`;
 
@@ -246,28 +193,18 @@ function onWsMessage(data) {
   if (row) {
     row.dataset.status = status;
     const glyph = row.querySelector('.glyph');
-    if (status === 'running') {
-      glyph.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3.5-7.1"/></svg>';
-    } else if (status === 'complete') {
-      glyph.textContent = '✓';
-    } else if (status === 'error') {
-      glyph.textContent = '!';
-    } else if (status === 'cancelled') {
-      glyph.textContent = '×';
-    } else {
-      glyph.textContent = '·';
-    }
-    if (findings && findings.length > 0) {
-      row.querySelector('.count').textContent = `${findings.length}`;
-    }
+    if (status === 'running') glyph.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3.5-7.1"/></svg>';
+    else if (status === 'complete') glyph.textContent = '✓';
+    else if (status === 'error') glyph.textContent = '!';
+    else if (status === 'cancelled') glyph.textContent = '×';
+    else glyph.textContent = '·';
+    if (findings && findings.length > 0) row.querySelector('.count').textContent = `${findings.length}`;
   }
 
-  // Update completed counter
   const total = document.querySelectorAll('.mod-status').length;
   const done = document.querySelectorAll('.mod-status[data-status="complete"], .mod-status[data-status="error"], .mod-status[data-status="cancelled"]').length;
   document.getElementById('progress-counts').textContent = `${done} / ${total} complete`;
 
-  // Append findings to feed
   if (findings && findings.length > 0) {
     runFindings.push(...findings);
     const feed = document.getElementById('live-feed');
@@ -286,7 +223,7 @@ function onWsMessage(data) {
 }
 
 function onWsClose() {
-  // re-enable controls when scan ends naturally OR ws drops
+  console.info('[ws] closed');
   const btn = document.getElementById('btn-start-scan');
   btn.disabled = false;
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg> Start scan';
@@ -296,6 +233,7 @@ async function killScan() {
   if (!activeScanId) return;
   try {
     await api.cancelScan(activeScanId);
+    console.info('[scan] cancel requested', { scanId: activeScanId });
     toast('Cancel signal sent', 'ok');
   } catch (e) {
     toast('Cancel failed: ' + e.message, 'error');
@@ -303,7 +241,6 @@ async function killScan() {
 }
 
 export function reset() {
-  // After "new scan" or coming back from triage
   document.getElementById('run-screen-progress').classList.add('hidden');
   document.getElementById('run-screen-config').classList.remove('hidden');
   document.getElementById('run-crumb').textContent = 'new scan';
@@ -312,11 +249,44 @@ export function reset() {
   const btn = document.getElementById('btn-start-scan');
   btn.disabled = false;
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg> Start scan';
-  if (activeWS) {
-    try { activeWS.close(); } catch {}
-    activeWS = null;
-  }
+  if (activeWS) { try { activeWS.close(); } catch {} activeWS = null; }
   activeScanId = null;
+  sessionStorage.removeItem(DRAFT_KEY);
+  console.info('[run] reset state');
 }
 
 export function getActiveScanId() { return activeScanId; }
+
+function persistDraft() {
+  const payload = {
+    target: document.getElementById('run-target').value,
+    auth: document.getElementById('auth-confirm').checked,
+    profile: selectedProfile,
+    modules: getSelectedModules(),
+  };
+  sessionStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+}
+
+function restoreDraft() {
+  const raw = sessionStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const draft = JSON.parse(raw);
+    if (draft.target) document.getElementById('run-target').value = draft.target;
+    if (typeof draft.auth === 'boolean') document.getElementById('auth-confirm').checked = draft.auth;
+    if (draft.profile && profiles[draft.profile]) {
+      selectedProfile = draft.profile;
+      renderProfiles();
+    }
+    if (Array.isArray(draft.modules) && draft.modules.length > 0) {
+      const selected = new Set(draft.modules);
+      document.querySelectorAll('.module-row input[type=checkbox]').forEach(cb => {
+        cb.checked = selected.has(cb.dataset.module);
+      });
+    }
+    console.info('[run] restored draft state');
+  } catch {
+    sessionStorage.removeItem(DRAFT_KEY);
+  }
+}
+

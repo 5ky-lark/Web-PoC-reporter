@@ -16,7 +16,7 @@
   --border-strong:  oklch(42% 0.018 260);
   --text:           oklch(95% 0.005 260);
   --text-muted:     oklch(72% 0.008 260);
-  --text-faint:     oklch(54% 0.010 260);
+  --text-faint:     oklch(62% 0.010 260);
 
   /* the single saturated hue, used for critical & focus */
   --alert:          oklch(64% 0.22 25);
@@ -359,74 +359,6 @@ button:focus-visible, .btn:focus-visible { outline-color: var(--accent); }
 .panel-head h3 { font: 600 14px var(--font-sans); letter-spacing: -0.005em; }
 .panel-head .sub { color: var(--text-faint); font-size: 12px; }
 
-/* ---------- engagement list ---------- */
-.engagement-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--r-3);
-  padding: var(--gap-4) var(--gap-5);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--gap-4);
-  cursor: pointer;
-  transition: border-color var(--t-fast), background var(--t-fast);
-}
-.engagement-card:hover { border-color: var(--border-strong); background: var(--bg-raised); }
-.engagement-card + .engagement-card { margin-top: var(--gap-3); }
-.engagement-card h4 {
-  font: 600 14px var(--font-sans);
-  letter-spacing: -0.005em;
-  margin-bottom: 4px;
-}
-.engagement-meta {
-  display: flex; gap: var(--gap-4);
-  font: 500 11.5px var(--font-mono);
-  color: var(--text-faint);
-}
-.engagement-meta span { display: inline-flex; align-items: center; gap: 4px; }
-.engagement-status {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font: 500 10px var(--font-mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  color: var(--text-faint);
-}
-.engagement-status.active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
-.engagement-status.paused { color: var(--sev-medium); border-color: var(--sev-medium); background: var(--sev-medium-bg); }
-.engagement-status.closed { color: var(--text-faint); }
-
-.engagement-summary {
-  display: flex; gap: var(--gap-4);
-  font: 500 11.5px var(--font-mono);
-  align-self: center;
-}
-.engagement-summary .stat { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.engagement-summary .stat-val { color: var(--text); font-size: 16px; }
-.engagement-summary .stat-label { font-size: 10px; color: var(--text-faint); letter-spacing: 0.04em; text-transform: uppercase; }
-
-/* ---------- empty state ---------- */
-.empty {
-  display: grid; place-items: center; gap: var(--gap-4);
-  padding: var(--gap-7) var(--gap-5);
-  text-align: center;
-  border: 1px dashed var(--border);
-  border-radius: var(--r-3);
-  background: var(--bg);
-}
-.empty h3 { font: 500 16px var(--font-sans); margin-bottom: 2px; }
-.empty p { color: var(--text-muted); max-width: 50ch; line-height: 1.6; }
-.empty-glyph {
-  font: 500 24px var(--font-mono);
-  width: 48px; height: 48px;
-  border: 1px solid var(--border-strong);
-  display: grid; place-items: center;
-  border-radius: 50%;
-  color: var(--text-muted);
-}
 
 /* ---------- runner / scanner view ---------- */
 .runner {
@@ -854,67 +786,6 @@ ol.poc-steps li::before {
 .history-item .ev { color: var(--text); }
 .history-item .ts { color: var(--text-faint); }
 
-/* ---------- diff view ---------- */
-.diff-summary {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 2px;
-  margin-bottom: var(--gap-4);
-  font: 500 11px var(--font-mono);
-}
-.diff-cell {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  padding: 12px;
-  text-align: center;
-  border-radius: var(--r-2);
-}
-.diff-cell .num { font: 600 22px var(--font-sans); }
-.diff-cell .lab { color: var(--text-faint); margin-top: 2px; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10px; }
-.diff-cell.new { color: var(--alert); border-color: var(--alert-border); }
-.diff-cell.fixed { color: var(--accent); border-color: var(--accent-border); }
-.diff-cell.regressed { color: var(--sev-medium); border-color: var(--sev-medium); }
-.diff-cell.improved { color: var(--sev-low); border-color: var(--sev-low); }
-.diff-cell.reopened { color: var(--alert); border-color: var(--alert-border); }
-.diff-cell.unchanged { color: var(--text-faint); }
-
-/* ---------- modal (engagement onboarding) ---------- */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: oklch(8% 0.012 260 / 0.7);
-  display: grid; place-items: center;
-  z-index: 100;
-  padding: var(--gap-5);
-}
-.modal {
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-3);
-  width: 100%; max-width: 640px;
-  max-height: 86vh;
-  overflow-y: auto;
-  box-shadow: 0 24px 64px oklch(0% 0 0 / 0.5);
-}
-.modal-head {
-  padding: var(--gap-4) var(--gap-5);
-  border-bottom: 1px solid var(--border);
-  display: flex; justify-content: space-between; align-items: center;
-}
-.modal-head h3 { font: 600 16px var(--font-sans); letter-spacing: -0.005em; }
-.modal-body {
-  padding: var(--gap-5);
-  display: grid; gap: var(--gap-4);
-}
-.modal-foot {
-  padding: var(--gap-3) var(--gap-5);
-  border-top: 1px solid var(--border);
-  display: flex; justify-content: flex-end; gap: var(--gap-2);
-}
-.modal-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--gap-4);
-}
 
 /* ---------- toast ---------- */
 .toast-wrap {

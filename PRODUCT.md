@@ -2,7 +2,7 @@
 
 ## What it is
 
-A web vulnerability scanner that produces **deliverable, reproducible Proof-of-Concept reports** for offensive-security engagements. Not a SaaS demo. The output is an artifact a pentester signs and hands to a client.
+A web vulnerability scanner that produces **deliverable, reproducible Proof-of-Concept reports** for offensive-security testing. Not a SaaS demo. The output is an artifact a pentester signs and hands to a client.
 
 ## Register
 
@@ -20,7 +20,7 @@ Secondary: the AppSec lead who reviews findings the next day, marks false-positi
 2. **Severity must be derived, not asserted.** CVSS vector → severity, every time. Operators can override with a recorded justification.
 3. **Persistence is non-negotiable.** Every scan, every request issued, every status change is on disk. A reporter without history is a scanner.
 4. **Diff is the headline feature.** "What changed since last time" is the question every client asks. Make it the front page.
-5. **The legal trail is part of the product.** Engagement scope, rules of engagement, tester identity, LoA, and an append-only audit log are first-class data — not a checkbox.
+5. **The legal trail is part of the product.** Authorization confirmation, tester identity, and an append-only audit log are first-class data.
 6. **Operators triage, the system stays out of the way.** Dense layouts, keyboard-first, no animation theatre, no gradient decoration.
 
 ## Anti-references
@@ -41,9 +41,8 @@ No em-dashes. Use commas, colons, periods.
 
 ## Three primary surfaces
 
-1. **Engagements** — list of engagements with scope, latest scan, finding deltas. Landing page after the first scan.
-2. **Run** — target + profile (Recon / Standard / Deep) + advanced module toggles + start. Includes the live progress feed and kill switch when a scan is in flight.
-3. **Triage** — findings table, severity ladder, search/filter/sort/group, right-pane detail with raw HTTP/curl/PoC/notes/history.
+1. **Run** — target + profile (Recon / Standard / Deep) + advanced module toggles + start. Includes the live progress feed and kill switch when a scan is in flight.
+2. **Triage** — findings table, severity ladder, search/filter/sort/group, right-pane detail with raw HTTP/curl/PoC/notes/history.
 
 ## Scope cut for this build
 

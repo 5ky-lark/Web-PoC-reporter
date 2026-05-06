@@ -5,6 +5,8 @@
 const BASE = '';
 
 async function req(path, opts = {}) {
+  const method = opts.method || 'GET';
+  console.info('[api] request', { method, path });
   const resp = await fetch(BASE + path, {
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
     ...opts,
@@ -14,6 +16,7 @@ async function req(path, opts = {}) {
     throw new Error(err.detail || `HTTP ${resp.status}`);
   }
   const ctype = resp.headers.get('content-type') || '';
+  console.info('[api] response', { method, path, status: resp.status, contentType: ctype });
   if (ctype.includes('application/json')) return resp.json();
   return resp.text();
 }
@@ -22,31 +25,19 @@ async function req(path, opts = {}) {
 export const getProfiles = () => req('/api/profiles');
 export const getHealth   = () => req('/api/health');
 
-/* ---------- engagements ---------- */
-export const listEngagements   = () => req('/api/engagements');
-export const getEngagement     = (id) => req(`/api/engagements/${id}`);
-export const createEngagement  = (body) => req('/api/engagements', {
-  method: 'POST', body: JSON.stringify(body),
-});
-export const setEngagementStatus = (id, status) => req(`/api/engagements/${id}/status`, {
-  method: 'PATCH', body: JSON.stringify({ status }),
-});
-
 /* ---------- scans ---------- */
-export const startScan = ({ targetUrl, modules, profile = 'standard', engagementId = null }) =>
+export const startScan = ({ targetUrl, modules, profile = 'standard' }) =>
   req('/api/scan', {
     method: 'POST',
     body: JSON.stringify({
       target_url: targetUrl,
       modules,
       profile,
-      engagement_id: engagementId,
     }),
   });
 
 export const getScan       = (id) => req(`/api/scan/${id}`);
-export const listScans     = (engagementId = null) =>
-  req(`/api/scans${engagementId ? `?engagement_id=${engagementId}` : ''}`);
+export const listScans     = () => req('/api/scans');
 export const cancelScan    = (id) => req(`/api/scan/${id}/cancel`, { method: 'POST' });
 export const getScanAudit  = (id) => req(`/api/scan/${id}/audit`);
 export const getScanDiff   = (older, newer) => req(`/api/scan/diff/${older}/${newer}`);
@@ -65,7 +56,14 @@ export const addNote      = (id, body, author = null) =>
 /* ---------- exports ---------- */
 export async function exportScan(scanId, format) {
   const resp = await fetch(`${BASE}/api/scan/${scanId}/export/${format}`);
-  if (!resp.ok) throw new Error(`Export ${format} failed: HTTP ${resp.status}`);
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try {
+      const body = await resp.json();
+      if (body && body.detail) detail = body.detail;
+    } catch {}
+    throw new Error(`Export ${format} failed: ${detail}`);
+  }
 
   const ctype = resp.headers.get('content-type') || '';
   const blob = await resp.blob();
@@ -73,6 +71,7 @@ export async function exportScan(scanId, format) {
 
   if (format === 'pdf' && ctype.includes('text/html')) {
     // WeasyPrint not installed — open the HTML and let the browser print
+    console.info('[export] pdf fallback -> html print mode', { scanId });
     const w = window.open(url, '_blank');
     if (w) w.onload = () => setTimeout(() => w.print(), 600);
     return;

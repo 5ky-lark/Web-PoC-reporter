@@ -113,7 +113,6 @@ class ScanOrchestrator:
         target_url: str,
         modules: Optional[list[str]] = None,
         *,
-        engagement_id: Optional[str] = None,
         profile: str = "standard",
     ) -> str:
         scan_id = str(uuid.uuid4())
@@ -122,7 +121,6 @@ class ScanOrchestrator:
 
         db.insert_scan({
             "id": scan_id,
-            "engagement_id": engagement_id,
             "target_url": target_url,
             "profile": profile,
             "modules_run": chosen,
@@ -131,7 +129,7 @@ class ScanOrchestrator:
         })
         db.log_event(
             "scan_created",
-            scan_id=scan_id, engagement_id=engagement_id,
+            scan_id=scan_id,
             details={"target_url": target_url, "profile": profile, "modules": chosen},
         )
         return scan_id
@@ -288,7 +286,7 @@ class ScanOrchestrator:
 
         # Assign stable, human-readable tracking IDs.
         # Reuse fingerprints across scans on the same engagement.
-        self._assign_tracking_ids(all_findings, scan.get("engagement_id"))
+        self._assign_tracking_ids(all_findings)
 
         # Persist findings
         if all_findings:
@@ -340,7 +338,6 @@ class ScanOrchestrator:
             modules_run=modules,
             errors=errors,
             profile=scan.get("profile") or "standard",
-            engagement_id=scan.get("engagement_id"),
         )
         return result
 
@@ -362,11 +359,8 @@ class ScanOrchestrator:
                 s[sev] += 1
         return s
 
-    def _assign_tracking_ids(
-        self, findings: list[Finding], engagement_id: Optional[str]
-    ) -> None:
-        """Stable, human-readable IDs (CYS-XSS-0007) per fingerprint within an engagement."""
-        eid = engagement_id or "_global"
+    def _assign_tracking_ids(self, findings: list[Finding]) -> None:
+        """Stable, human-readable IDs (CYS-XSS-0007) per fingerprint."""
         seen: dict[str, str] = {}  # fingerprint -> tracking_id
         for f in findings:
             if not f.fingerprint:
@@ -375,7 +369,7 @@ class ScanOrchestrator:
                 f.tracking_id = seen[f.fingerprint]
                 continue
             mod_token = f.module.upper()[:3]
-            key = (eid, mod_token)
+            key = ("_global", mod_token)
             self._tracking_counters[key] += 1
             tid = f"CYS-{mod_token}-{self._tracking_counters[key]:04d}"
             f.tracking_id = tid

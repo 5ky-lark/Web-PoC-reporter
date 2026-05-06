@@ -4,8 +4,8 @@ Operator-grade web vulnerability scanner and PoC reporter with reproducible evid
 
 This project combines:
 - A **FastAPI backend** for scanning orchestration, persistence, exports, and report generation
-- A **vanilla JS + Vite frontend** for engagement management, scan execution, and triage
-- A **SQLite data layer** for engagement history, findings workflow, notes, and audit trail
+- A **vanilla JS + Vite frontend** for scan execution and triage
+- A **SQLite data layer** for scan history, findings workflow, notes, and audit trail
 
 ---
 
@@ -50,7 +50,6 @@ Core modules:
 - `index.html` - app shell
 - `css/index.css` - design system and layout
 - `js/main.js` - app bootstrap + route/view switching
-- `js/engagement.js` - engagement UI flow
 - `js/scanner.js` - scan run/progress/kill workflow
 - `js/triage.js` - findings table, drawer, notes, workflow actions
 - `js/api.js` - backend API client
@@ -61,10 +60,6 @@ Core modules:
 
 - `GET /api/health`
 - `GET /api/profiles`
-- `POST /api/engagements`
-- `GET /api/engagements`
-- `GET /api/engagements/{eid}`
-- `PATCH /api/engagements/{eid}/status`
 - `POST /api/scan`
 - `GET /api/scans`
 - `GET /api/scan/{scan_id}`
@@ -109,9 +104,19 @@ Frontend runs on: `http://localhost:5173`
 ## Data Storage
 
 - SQLite file is created in `backend/` (via `db.py`) on first run.
-- It stores engagements, scans, findings, notes, and audit logs.
+- It stores scans, findings, notes, and audit logs.
 
 If you want a clean slate, stop the backend and delete the SQLite DB files in `backend/`.
+
+---
+
+## Limitations
+
+- Automated findings are heuristic and can produce false positives, especially for injection-style checks.
+- A finding should only be treated as confirmed after manual reproduction using the provided request/response and `curl` evidence.
+- Network behavior, WAF/CDN responses, and target instability can affect scanner consistency and reproducibility.
+- The scanner currently focuses on unauthenticated web attack surface by default; authenticated/business-logic coverage is limited.
+- PDF export depends on WeasyPrint native system libraries. On hosts missing these dependencies (common on Windows without GTK/cairo stack), the app falls back to HTML print mode.
 
 ---
 

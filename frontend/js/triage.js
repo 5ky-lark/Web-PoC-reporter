@@ -14,7 +14,6 @@ import {
 
 let scanState = null;       // current scan dict
 let findingsState = [];     // findings array
-let engagementState = null; // engagement (if attached)
 let auditState = [];        // audit log entries (lazy-loaded)
 
 let selectedSeverities = new Set(['critical', 'high', 'medium', 'low', 'info']);
@@ -24,23 +23,19 @@ let groupBy = 'severity';
 let sortBy = 'severity';
 let activeFinding = null;
 let activeTab = 'evidence';
+let lastVisible = [];
 
 // ---------- entry point ----------
 
 export async function loadScan(scanId) {
   try {
     scanState = await api.getScan(scanId);
+    console.info('[triage] loaded scan', { scanId, findings: (scanState.findings || []).length });
   } catch (e) {
     toast('Failed to load scan: ' + e.message, 'error');
     return;
   }
   findingsState = scanState.findings || [];
-  engagementState = null;
-  if (scanState.engagement_id) {
-    try {
-      engagementState = await api.getEngagement(scanState.engagement_id);
-    } catch {}
-  }
   auditState = [];
 
   // Update command bar
@@ -63,7 +58,12 @@ function renderTriageActions() {
     el('button', {
       className: `btn btn-sm ${cls}`,
       onclick: async () => {
-        try { await api.exportScan(scanState.id, fmt); }
+        try {
+          toast(`Exporting ${fmt.toUpperCase()}...`);
+          await api.exportScan(scanState.id, fmt);
+          toast(`${fmt.toUpperCase()} export ready`, 'ok');
+          console.info('[triage] export', { format: fmt, scanId: scanState.id });
+        }
         catch (e) { toast(e.message, 'error'); }
       },
     }, label);
@@ -90,6 +90,17 @@ function renderToolbar() {
       pill.appendChild(el('span', { className: 'glyph' }, SEVERITY_GLYPH[sev]));
       pill.appendChild(document.createTextNode(' ' + sev));
       pill.appendChild(el('span', { className: 'count', 'data-sev-count': sev }, '0'));
+      tb.appendChild(pill);
+    }
+  }
+  if (!tb.querySelector('[data-status-pill]')) {
+    const statuses = ['new', 'triaging', 'confirmed', 'false_positive', 'accepted_risk', 'fixed', 'wont_fix'];
+    for (const status of statuses) {
+      const pill = el('button', {
+        className: 'pill active',
+        'data-status-pill': status,
+        onclick: () => toggleStatus(status),
+      }, STATUS_LABELS[status] || status);
       tb.appendChild(pill);
     }
   }
@@ -127,6 +138,14 @@ function toggleSev(sev) {
   renderTable();
 }
 
+function toggleStatus(status) {
+  if (selectedStatuses.has(status)) selectedStatuses.delete(status);
+  else selectedStatuses.add(status);
+  const node = document.querySelector(`[data-status-pill="${status}"]`);
+  if (node) node.classList.toggle('active', selectedStatuses.has(status));
+  renderTable();
+}
+
 function renderSummary() {
   const sum = scanState.summary || {};
   // Severity counts on the pills
@@ -151,11 +170,6 @@ function renderSummary() {
     }, SEVERITY_GLYPH[sev]));
     grp.appendChild(el('span', {}, String(n)));
     wrap.appendChild(grp);
-  }
-
-  if (engagementState) {
-    wrap.appendChild(el('span', { className: 'delim' }, '·'));
-    wrap.appendChild(textGroup(engagementState.client_name, 'client'));
   }
 
   if (scanState.profile) {
@@ -193,14 +207,31 @@ function renderTable() {
   });
 
   visible = sortFindings(visible);
+  lastVisible = visible;
 
   if (visible.length === 0) {
     wrap.appendChild(el('div', {
       className: 'drawer-empty',
       style: 'height: 200px;',
-    }, findingsState.length === 0
-      ? 'this scan produced no findings'
-      : 'no findings match the current filters'));
+    }, findingsState.length === 0 ? 'this scan produced no findings' : 'no findings match the current filters'));
+    const cta = el('div', { className: 'row', style: 'justify-content:center; gap:8px; margin-top:10px;' });
+    cta.appendChild(el('button', {
+      className: 'btn btn-sm',
+      onclick: () => { window.location.hash = '#run'; },
+    }, 'Run new scan'));
+    cta.appendChild(el('button', {
+      className: 'btn btn-sm',
+      onclick: () => {
+        selectedSeverities = new Set(['critical', 'high', 'medium', 'low', 'info']);
+        selectedStatuses = new Set(['new', 'triaging', 'confirmed', 'accepted_risk', 'fixed', 'wont_fix', 'false_positive']);
+        searchQuery = '';
+        const search = document.getElementById('search-input');
+        if (search) search.value = '';
+        document.querySelectorAll('[data-sev-pill], [data-status-pill]').forEach(p => p.classList.add('active'));
+        renderTable();
+      },
+    }, 'Clear filters'));
+    wrap.appendChild(cta);
     return;
   }
 
@@ -219,7 +250,16 @@ function rowFor(f) {
   const sev = effectiveSeverity(f);
   const row = el('div', {
     className: 'findings-row' + (activeFinding && activeFinding.id === f.id ? ' selected' : ''),
+    role: 'button',
+    tabindex: '0',
+    'aria-selected': activeFinding && activeFinding.id === f.id ? 'true' : 'false',
     onclick: () => selectFinding(f),
+    onkeydown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectFinding(f);
+      }
+    },
   });
   row.appendChild(el('span', { className: `sev sev-${sev}` }, SEVERITY_GLYPH[sev] || '·'));
   row.appendChild(el('span', { className: 'id' }, f.tracking_id || `cys-${(f.id || '').slice(0, 6)}`));
@@ -292,6 +332,7 @@ function clearDrawer() {
 
 async function selectFinding(f) {
   activeFinding = f;
+  console.info('[triage] selected finding', { findingId: f.id, trackingId: f.tracking_id, severity: f.severity });
   // mark row
   document.querySelectorAll('.findings-row').forEach(r => r.classList.remove('selected'));
   // (visual update on next render)
@@ -606,10 +647,38 @@ function mergeUpdated(updated) {
     if (activeFinding && activeFinding.id === updated.id) {
       activeFinding = findingsState[idx];
     }
+    console.info('[triage] finding updated', { findingId: updated.id, status: updated.status, confidence: updated.confidence });
   }
 }
 
 export function init() {
-  // wire drawer-empty placeholder once
-  // most wiring is per-render
+  document.addEventListener('keydown', (e) => {
+    const activeTag = document.activeElement?.tagName?.toLowerCase();
+    const typing = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select';
+    if (typing) return;
+    if (window.location.hash.startsWith('#triage') === false) return;
+    if (e.key.toLowerCase() === 'j') {
+      e.preventDefault();
+      stepSelection(1);
+    } else if (e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      stepSelection(-1);
+    }
+  });
+}
+
+function stepSelection(delta) {
+  if (!lastVisible.length) return;
+  if (!activeFinding) {
+    selectFinding(lastVisible[0]);
+    return;
+  }
+  const idx = lastVisible.findIndex(f => f.id === activeFinding.id);
+  const nextIdx = Math.min(Math.max(idx + delta, 0), lastVisible.length - 1);
+  const next = lastVisible[nextIdx];
+  if (next) {
+    selectFinding(next);
+    const rows = Array.from(document.querySelectorAll('.findings-row'));
+    if (rows[nextIdx]) rows[nextIdx].scrollIntoView({ block: 'nearest' });
+  }
 }
