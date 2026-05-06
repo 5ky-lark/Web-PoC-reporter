@@ -57,7 +57,7 @@ Core modules:
 
 ---
 
-## API Surface (High-Level)
+## API Surface
 
 - `GET /api/health`
 - `GET /api/profiles`
@@ -125,7 +125,7 @@ If you want a clean slate, stop the backend and delete the SQLite DB files in `b
 
 ## Project Status
 
-Current state is a strong PoC-to-product transition baseline with:
+Current state is PoC-to-product transition baseline with:
 - persistent data model
 - reproducible PoC evidence
 - triage workflow
