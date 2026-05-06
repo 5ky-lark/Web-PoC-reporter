@@ -3,7 +3,7 @@
  */
 
 const IS_LOCAL = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const BASE_CANDIDATES = IS_LOCAL ? [''] : ['/api', '/_/backend', ''];
+const BASE_CANDIDATES = IS_LOCAL ? [''] : ['/_/backend', '/api', ''];
 let resolvedBase = null;
 
 async function fetchWithBase(path, opts = {}) {
