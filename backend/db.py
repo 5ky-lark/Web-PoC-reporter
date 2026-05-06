@@ -12,14 +12,31 @@ Stdlib sqlite3 only — no extra deps. Tables:
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
+import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 
-DB_PATH = Path(__file__).parent / "cybersyc.db"
+def _resolve_db_path() -> Path:
+    """
+    Pick a writable SQLite path for each runtime:
+    - DB_PATH env var (explicit override)
+    - Vercel serverless: /tmp is writable
+    - local/dev: backend/cybersyc.db
+    """
+    env_path = os.getenv("DB_PATH")
+    if env_path:
+        return Path(env_path)
+    if os.getenv("VERCEL") == "1":
+        return Path(tempfile.gettempdir()) / "cybersyc.db"
+    return Path(__file__).parent / "cybersyc.db"
+
+
+DB_PATH = _resolve_db_path()
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS engagement (
@@ -122,6 +139,7 @@ def connect() -> Iterator[sqlite3.Connection]:
     """Thread-safe connection context. Each call opens a new connection
     (sqlite3 connections aren't share-safe across threads by default)."""
     with _lock:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(DB_PATH), isolation_level=None, timeout=30)
         conn.row_factory = _row_factory
         conn.execute("PRAGMA foreign_keys = ON")
