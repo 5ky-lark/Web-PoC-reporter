@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="CyberSyc — operator-grade web vulnerability scanner with reproducible PoC reports.">
+<title>CyberSyc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ======================== LEFT RAIL ======================== -->
+  <aside class="rail">
+    <div class="rail-brand">
+      <span class="rail-brand-mark">C</span>
+      <span class="rail-brand-name">CyberSyc<span> · ops</span></span>
+    </div>
+
+    <div class="rail-section">workspace</div>
+    <a href="#engagements" class="rail-link" data-view="engagements">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 7h18M3 12h18M3 17h18"/>
+      </svg>
+      Engagements
+    </a>
+    <a href="#run" class="rail-link" data-view="run">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M5 3l14 9-14 9V3z"/>
+      </svg>
+      Run
+    </a>
+    <a href="#triage" class="rail-link" data-view="triage">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+      </svg>
+      Triage
+    </a>
+
+    <div class="rail-section">history</div>
+    <div id="rail-scans" style="padding: 0 var(--gap-2); display: flex; flex-direction: column; gap: 1px;"></div>
+
+    <div class="rail-foot">
+      <span><span class="dot"></span>backend</span>
+      <span id="rail-version">v1.1.0</span>
+    </div>
+  </aside>
+
+  <!-- ======================== MAIN ======================== -->
+  <main class="main">
+
+    <!-- ============== ENGAGEMENTS VIEW ============== -->
+    <section class="view" id="view-engagements" data-view="engagements">
+      <div class="cmd">
+        <span class="cmd-title">Engagements</span>
+        <span class="cmd-spacer"></span>
+        <button class="btn btn-primary" id="btn-new-engagement">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New engagement
+        </button>
+      </div>
+      <div class="view-pad" id="engagements-body"></div>
+    </section>
+
+    <!-- ============== RUN VIEW ============== -->
+    <section class="view" id="view-run" data-view="run">
+      <div class="cmd">
+        <span class="cmd-title">
+          <span>Run</span>
+          <span class="sep">/</span>
+          <span class="crumb" id="run-crumb">new scan</span>
+        </span>
+      </div>
+
+      <div class="view-pad">
+        <div id="run-screen-config">
+          <h1 class="view-title">Run a scan</h1>
+          <p class="view-sub">Pick an engagement, choose a profile, hit Start. Findings persist to disk and stream to triage.</p>
+
+          <div class="runner">
+            <div class="runner-main">
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Target</h3>
+                  <span class="sub" id="engagement-scope-hint">no engagement attached</span>
+                </div>
+
+                <div class="field">
+                  <label for="run-engagement">Engagement</label>
+                  <select id="run-engagement" class="input" style="height:34px;">
+                    <option value="">— scan without engagement (warning) —</option>
+                  </select>
+                  <span class="help">Engagements gate scope, record the tester, and roll forward across scans for diff.</span>
+                </div>
+
+                <div class="field" style="margin-top: var(--gap-3);">
+                  <label for="run-target">Target URL</label>
+                  <div class="input">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    <input id="run-target" type="text" class="mono" placeholder="https://staging.example.com" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Profile</h3>
+                  <span class="sub">module preset</span>
+                </div>
+
+                <div class="profile-row" id="profile-row"></div>
+
+                <details class="advanced-disclosure" id="advanced">
+                  <summary class="advanced-toggle">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+                    Advanced — pick individual modules
+                  </summary>
+                  <div class="module-grid" id="module-grid"></div>
+                </details>
+              </div>
+
+            </div>
+
+            <div class="runner-side panel">
+              <div class="panel-head">
+                <h3>Authorization</h3>
+              </div>
+              <div class="auth-confirm">
+                <input type="checkbox" id="auth-confirm">
+                <span>I confirm written authorization for this target. The engagement scope, tester identity, and audit log will be attached to this scan.</span>
+              </div>
+
+              <div class="error-box hidden" id="run-error" style="margin-top: var(--gap-3);"></div>
+
+              <button class="btn btn-primary" id="btn-start-scan" style="margin-top: var(--gap-4); width: 100%; justify-content: center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
+                Start scan
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- progress live state -->
+        <div id="run-screen-progress" class="hidden">
+          <div class="progress-section">
+            <div class="row" style="justify-content: space-between; align-items: baseline;">
+              <h1 class="view-title" id="progress-title">Scanning</h1>
+              <button class="btn btn-danger btn-sm" id="btn-kill">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                Kill scan
+              </button>
+            </div>
+
+            <div class="panel">
+              <div class="progress-meta">
+                <span class="target mono" id="progress-target"></span>
+                <span class="pct mono" id="progress-percent">0%</span>
+              </div>
+              <div class="progress-bar"><div id="progress-bar-fill"></div></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Modules</h3>
+                <span class="sub" id="progress-counts"></span>
+              </div>
+              <div class="module-status-grid" id="module-status"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Live findings</h3>
+                <span class="sub mono" id="live-feed-count">0</span>
+              </div>
+              <div class="live-feed" id="live-feed"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== TRIAGE VIEW ============== -->
+    <section class="view" id="view-triage" data-view="triage">
+      <div class="cmd">
+        <span class="cmd-title">
+          <span>Triage</span>
+          <span class="sep">/</span>
+          <span class="crumb mono" id="triage-target">no scan loaded</span>
+        </span>
+        <span class="cmd-spacer"></span>
+        <div id="triage-actions" class="row"></div>
+      </div>
+
+      <div class="triage" id="triage-pane">
+        <div class="triage-list">
+          <div class="triage-toolbar" id="triage-toolbar">
+            <div class="input">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input id="search-input" type="text" placeholder="search title, evidence, payload, host…">
+            </div>
+            <select id="group-by">
+              <option value="severity">group by · severity</option>
+              <option value="module">group by · module</option>
+              <option value="status">group by · status</option>
+              <option value="host">group by · host</option>
+              <option value="cwe">group by · cwe</option>
+              <option value="none">group by · none</option>
+            </select>
+            <select id="sort-by">
+              <option value="severity">sort · severity desc</option>
+              <option value="cvss">sort · cvss desc</option>
+              <option value="title">sort · title</option>
+              <option value="age">sort · age</option>
+            </select>
+          </div>
+          <div class="triage-summary" id="triage-summary"></div>
+          <div class="findings-table" id="findings-table"></div>
+        </div>
+
+        <aside class="drawer" id="drawer">
+          <div class="drawer-empty" id="drawer-empty">
+            select a finding to inspect evidence,<br>reproducer, status, notes, history
+          </div>
+        </aside>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ======================== ENGAGEMENT MODAL ======================== -->
+<div class="modal-overlay hidden" id="engagement-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>New engagement</h3>
+      <button class="btn-ghost btn btn-sm" id="modal-close">close</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-row">
+        <div class="field">
+          <label for="eng-client">Client name</label>
+          <div class="input"><input id="eng-client" placeholder="Acme Corp"></div>
+        </div>
+        <div class="field">
+          <label for="eng-contract">Contract ID</label>
+          <div class="input"><input id="eng-contract" class="mono" placeholder="CTR-2026-00123"></div>
+        </div>
+      </div>
+
+      <div class="modal-row">
+        <div class="field">
+          <label for="eng-tester">Tester (you)</label>
+          <div class="input"><input id="eng-tester" placeholder="Sky Walker"></div>
+        </div>
+        <div class="field">
+          <label for="eng-tester-email">Tester email</label>
+          <div class="input"><input id="eng-tester-email" class="mono" placeholder="sky@cybersyc.example"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="eng-scope">In-scope hosts (one per line)</label>
+        <textarea id="eng-scope" class="mono" placeholder="staging.example.com&#10;api.example.com&#10;*.dev.example.com" style="font-family: var(--font-mono); font-size: 12.5px;"></textarea>
+        <span class="help">Subdomains are included automatically.</span>
+      </div>
+
+      <div class="field">
+        <label for="eng-out-scope">Explicitly out of scope</label>
+        <textarea id="eng-out-scope" class="mono" placeholder="prod.example.com&#10;billing.example.com" style="font-family: var(--font-mono); font-size: 12.5px;"></textarea>
+      </div>
+
+      <div class="modal-row">
+        <div class="field">
+          <label for="eng-window-start">Window start</label>
+          <div class="input"><input id="eng-window-start" class="mono" type="datetime-local"></div>
+        </div>
+        <div class="field">
+          <label for="eng-window-end">Window end</label>
+          <div class="input"><input id="eng-window-end" class="mono" type="datetime-local"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="eng-emergency">Emergency contact (during the engagement window)</label>
+        <div class="input"><input id="eng-emergency" placeholder="+1 555 0100 · ops@example.com"></div>
+      </div>
+
+      <div class="field">
+        <label for="eng-roe">Rules of engagement</label>
+        <textarea id="eng-roe" placeholder="No DoS. No data egress. Stop on production database errors. Notify ops on auth-bypass findings."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="eng-loa">Letter of authorization (text)</label>
+        <textarea id="eng-loa" placeholder="Paste the LoA text. We hash it (SHA-256) and embed the hash in the report header. The text itself is not stored." style="font-family: var(--font-mono); font-size: 12px;"></textarea>
+        <span class="help">The text is sent to the backend, hashed (SHA-256), and only the hash is persisted. The original text is discarded.</span>
+      </div>
+
+      <div class="error-box hidden" id="modal-error"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-create">Create engagement</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast container -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>
