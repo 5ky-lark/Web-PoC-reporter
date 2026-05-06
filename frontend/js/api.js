@@ -15,7 +15,11 @@ async function fetchWithBase(path, opts = {}) {
       headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
       ...opts,
     });
-    if (resp.status !== 404) {
+    const ctype = (resp.headers.get('content-type') || '').toLowerCase();
+    const looksLikeHtml = ctype.includes('text/html');
+    // Some Vercel routes can return the frontend shell (200 text/html) for unknown paths.
+    // For API requests, treat that as a miss and keep trying other bases.
+    if (resp.status !== 404 && !looksLikeHtml) {
       resolvedBase = base;
       console.info('[api] base selected', { base, method, path, status: resp.status });
       return resp;
